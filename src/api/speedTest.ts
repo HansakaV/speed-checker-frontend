@@ -1,6 +1,6 @@
 import { NetworkDetails } from "../types/speed";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ;
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL ;
 
 // --- 1. RUN PING & DETECT ISP TEST ---
 export const runPingAndNetworkTest = async (): Promise<{ duration: number; network: NetworkDetails }> => {
