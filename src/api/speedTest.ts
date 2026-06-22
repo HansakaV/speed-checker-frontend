@@ -28,7 +28,7 @@ export const runPingAndNetworkTest = async (): Promise<{ duration: number; netwo
 export const runDownloadTest = async (
   onProgress: (speedMbps: number) => void
 ): Promise<number> => {
-  const res = await fetch(`${BACKEND_URL}/download`, { cache: "no-store" });
+  const res = await fetch(`${BACKEND_URL}/download?size_in_mb=2`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Download test failed: ${res.statusText}`);
   }
@@ -68,7 +68,7 @@ export const runUploadTest = async (
 ): Promise<number> => {
   return new Promise((resolve, reject) => {
     // 5MB Dummy Payload Generator
-    const dummySize = 5 * 1024 * 1024;
+    const dummySize = 1 * 1024 * 1024;
     const dummyData = new Uint8Array(dummySize);
     const testStartTime = performance.now();
     let lastUpdateTime = testStartTime;
