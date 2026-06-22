@@ -8,13 +8,13 @@ interface SpeedGaugeProps {
   phase: string;
 }
 
-const TICKS = [0, 50, 100, 150, 200, 250, 300];
+const TICKS = [0, 10, 50, 100, 150, 200, 250, 300];
 
 export default function SpeedGauge({ value, max, phase }: SpeedGaugeProps) {
   const radius = 75;
   const circumference = 2 * Math.PI * radius;
-  const activeCircumference = circumference * (240 / 360); // 314.16
-  const gapCircumference = circumference * (120 / 360);    // 157.08
+  const activeCircumference = circumference * (270 / 360); // 353.43
+  const gapCircumference = circumference * (90 / 360);    // 117.81
 
   const [displayValue, setDisplayValue] = useState(0);
 
@@ -28,7 +28,7 @@ export default function SpeedGauge({ value, max, phase }: SpeedGaugeProps) {
   useEffect(() => {
     if (phase === "pinging") {
       let startTime: number | null = null;
-      const duration = 1500; // 1.5 seconds (slower & smoother)
+      const duration = 1500; // 1.5 seconds
 
       const animateSweep = (timestamp: number) => {
         if (!startTime) startTime = timestamp;
@@ -72,8 +72,8 @@ export default function SpeedGauge({ value, max, phase }: SpeedGaugeProps) {
         if (Math.abs(diff) < 0.05) {
           return target;
         }
-        // Damping factor: 0.05 makes it climb and fall slowly and smoothly
-        return prev + diff * 0.05;
+        // Damping factor for smooth movement
+        return prev + diff * 0.08;
       });
       animationFrameId = requestAnimationFrame(updateNeedle);
     };
@@ -85,46 +85,134 @@ export default function SpeedGauge({ value, max, phase }: SpeedGaugeProps) {
 
   const fillLength = (Math.min(displayValue, max) / max) * activeCircumference;
 
-  // Needle Rotation relative to vertical pointing up
-  // -120deg is bottom-left (0 Mbps), +120deg is bottom-right (300 Mbps)
-  const needleRotation = -120 + (Math.min(displayValue, max) / max) * 240;
+  // Let's configure phase colors, glows and descriptions
+  let themeColor = "stroke-violet-500";
+  let themeGlow = "rgba(139, 92, 246, 0.4)";
+  let themeGradientId = "violetGradient";
+  let displayPhaseName = "Ready";
+
+  if (phase === "downloading") {
+    themeColor = "stroke-cyan-500";
+    themeGlow = "rgba(6, 182, 212, 0.5)";
+    themeGradientId = "cyanGradient";
+    displayPhaseName = "Download";
+  } else if (phase === "uploading") {
+    themeColor = "stroke-pink-500";
+    themeGlow = "rgba(236, 72, 153, 0.5)";
+    themeGradientId = "pinkGradient";
+    displayPhaseName = "Upload";
+  } else if (phase === "pinging") {
+    themeColor = "stroke-violet-500";
+    themeGlow = "rgba(139, 92, 246, 0.5)";
+    themeGradientId = "violetGradient";
+    displayPhaseName = "Ping";
+  } else if (phase === "completed") {
+    themeColor = "stroke-emerald-500";
+    themeGlow = "rgba(16, 185, 129, 0.5)";
+    themeGradientId = "emeraldGradient";
+    displayPhaseName = "Completed";
+  }
+
+  // Calculate coordinates of the laser tip dot
+  const angle = 135 + (Math.min(displayValue, max) / max) * 270;
+  const angleRad = (angle * Math.PI) / 180;
+  const dotX = 100 + radius * Math.cos(angleRad);
+  const dotY = 100 + radius * Math.sin(angleRad);
+
+  // Calculate dynamic rotation speed based on value
+  const rotSpeed = displayValue > 0 ? Math.max(1, 10 - (displayValue / max) * 9) : 25;
 
   return (
-    <div className="relative w-64 h-64 mx-auto flex flex-col items-center justify-center animate-fadeIn select-none">
-      {/* Background Dashboard Aura Glow (Light theme compatible) */}
-      <div className="absolute inset-2 rounded-full bg-slate-50 border border-slate-200/80 shadow-[inset_0_0_20px_rgba(0,0,0,0.02),0_0_30px_rgba(6,182,212,0.02)] pointer-events-none" />
+    <div className="relative w-72 h-72 mx-auto flex flex-col items-center justify-center animate-fadeIn select-none">
+      
+      {/* Outer Glowing Neon Border Ring (Gradient + Glow shadow) */}
+      <div 
+        className="absolute inset-0 rounded-full pointer-events-none transition-all duration-700 z-0"
+        style={{
+          background: phase === "downloading" ? "linear-gradient(135deg, #06b6d4, #3b82f6)" :
+                      phase === "uploading" ? "linear-gradient(135deg, #ec4899, #8b5cf6)" :
+                      phase === "completed" ? "linear-gradient(135deg, #10b981, #06b6d4)" :
+                      "linear-gradient(135deg, #8b5cf6, #6366f1)",
+          boxShadow: phase !== "idle" 
+            ? `0 0 25px ${themeGlow}, inset 0 0 15px ${themeGlow}` 
+            : `0 0 15px rgba(139, 92, 246, 0.25)`,
+          padding: "3px"
+        }}
+      >
+        {/* Inner Dark Cutout to make it a border ring */}
+        <div className="w-full h-full rounded-full bg-[#060608]" />
+      </div>
 
-      {/* SVG Meter */}
-      <svg className="w-full h-full drop-shadow-[0_4px_12px_rgba(15,23,42,0.05)]" viewBox="0 0 200 200">
+      {/* Outer Rotating Cyber Ring: spins faster when speed increases */}
+      <div 
+        className="absolute inset-2 rounded-full border border-dashed border-violet-500/10 pointer-events-none z-0"
+        style={{
+          borderColor: phase !== "idle" ? themeGlow : "rgba(139, 92, 246, 0.1)",
+          boxShadow: phase !== "idle" ? `0 0 15px ${themeGlow}1a, inset 0 0 15px ${themeGlow}1a` : "none",
+          animation: `slowRotate ${rotSpeed}s linear infinite`,
+        }}
+      />
+
+      {/* Cybernetic Aura / Backdrop Glow */}
+      <div 
+        className="absolute inset-4 rounded-full transition-all duration-1000 bg-zinc-950/80 border border-zinc-800/50 flex items-center justify-center overflow-hidden"
+        style={{
+          boxShadow: phase !== "idle" 
+            ? `0 0 35px ${themeGlow}22, inset 0 0 25px ${themeGlow}11` 
+            : `0 0 30px rgba(139, 92, 246, 0.05)`,
+        }}
+      >
+        {/* Subtle grid pattern overlay */}
+        <div className="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none" />
+        
+        {/* Animated Ripple Waves for Pinging phase */}
+        {phase === "pinging" && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="absolute w-24 h-24 rounded-full border border-violet-500/40 animate-ping opacity-75" />
+            <div className="absolute w-36 h-36 rounded-full border border-violet-500/20 animate-ping opacity-40 [animation-delay:0.5s]" />
+          </div>
+        )}
+      </div>
+
+      {/* Main SVG Dashboard Meter */}
+      <svg className="w-full h-full relative z-10" viewBox="0 0 200 200">
         <defs>
-          {/* Luminous Gradient for Light Background */}
-          <linearGradient id="gaugeGradient" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#06b6d4" />   {/* Neon Cyan */}
-            <stop offset="60%" stopColor="#2563eb" />  {/* Electric Blue */}
-            <stop offset="100%" stopColor="#ec4899" /> {/* Luminous Magenta */}
+          {/* Neon Gradients */}
+          <linearGradient id="cyanGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#06b6d4" />
+            <stop offset="100%" stopColor="#3b82f6" />
           </linearGradient>
-          {/* Inner Grid Pattern (Light) */}
-          <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(148, 163, 184, 0.08)" strokeWidth="0.5" />
-          </pattern>
+          <linearGradient id="pinkGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#ec4899" />
+            <stop offset="100%" stopColor="#8b5cf6" />
+          </linearGradient>
+          <linearGradient id="violetGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#8b5cf6" />
+            <stop offset="100%" stopColor="#6366f1" />
+          </linearGradient>
+          <linearGradient id="emeraldGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#10b981" />
+            <stop offset="100%" stopColor="#06b6d4" />
+          </linearGradient>
+          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
         </defs>
 
-        {/* Dashboard Grid Backplate */}
-        <circle cx="100" cy="100" r="70" fill="url(#grid)" />
+        {/* Circular Sub-ring accent (Tech vibe) */}
+        <circle cx="100" cy="100" r="82" className="stroke-zinc-800 fill-none" strokeWidth="1" strokeDasharray="4 8" />
+        <circle cx="100" cy="100" r="68" className="stroke-zinc-900 fill-none" strokeWidth="1.5" />
 
-        {/* Circular Sub-ring accents */}
-        <circle cx="100" cy="100" r="54" className="stroke-slate-200/40 fill-none" strokeWidth="1" strokeDasharray="3 3" />
-        <circle cx="100" cy="100" r="46" className="stroke-slate-100 fill-none" strokeWidth="0.5" />
-
-        {/* Outer Unfilled Track */}
+        {/* Outer Unfilled Track (Slate Track) */}
         <circle
           cx="100"
           cy="100"
           r={radius}
-          className="stroke-slate-100 fill-none"
+          className="stroke-zinc-900 fill-none"
           strokeWidth="6"
           strokeDasharray={`${activeCircumference} ${gapCircumference}`}
-          transform="rotate(150 100 100)"
+          transform="rotate(135 100 100)"
           strokeLinecap="round"
         />
 
@@ -133,26 +221,27 @@ export default function SpeedGauge({ value, max, phase }: SpeedGaugeProps) {
           cx="100"
           cy="100"
           r={radius}
-          stroke="url(#gaugeGradient)"
+          stroke={`url(#${themeGradientId})`}
           className="fill-none transition-all duration-150 ease-out"
-          strokeWidth="8"
+          strokeWidth="7"
           strokeDasharray={`${fillLength} ${circumference}`}
-          transform="rotate(150 100 100)"
+          transform="rotate(135 100 100)"
           strokeLinecap="round"
+          filter="url(#glow)"
         />
 
-        {/* Dashboard Scale Ticks */}
+        {/* Scale Ticks & Digital Indicators */}
         {TICKS.map((tick, i) => {
-          const angle = 150 + i * (240 / (TICKS.length - 1));
-          const angleRad = (angle * Math.PI) / 180;
-          const rStart = radius - 11;
+          const tickAngle = 135 + i * (270 / (TICKS.length - 1));
+          const tickAngleRad = (tickAngle * Math.PI) / 180;
+          const rStart = radius - 10;
           const rEnd = radius - 4;
-          const x1 = 100 + rStart * Math.cos(angleRad);
-          const y1 = 100 + rStart * Math.sin(angleRad);
-          const x2 = 100 + rEnd * Math.cos(angleRad);
-          const y2 = 100 + rEnd * Math.sin(angleRad);
+          const x1 = 100 + rStart * Math.cos(tickAngleRad);
+          const y1 = 100 + rStart * Math.sin(tickAngleRad);
+          const x2 = 100 + rEnd * Math.cos(tickAngleRad);
+          const y2 = 100 + rEnd * Math.sin(tickAngleRad);
 
-          const isLit = Math.round(displayValue) >= tick;
+          const isLit = displayValue >= tick && phase !== "idle";
 
           return (
             <g key={tick}>
@@ -163,17 +252,19 @@ export default function SpeedGauge({ value, max, phase }: SpeedGaugeProps) {
                 y2={y2}
                 className={`transition-all duration-300 ${
                   isLit
-                    ? "stroke-cyan-500 stroke-[2px] drop-shadow-[0_0_3px_rgba(6,182,212,0.6)]"
-                    : "stroke-slate-200 stroke-[1px]"
+                    ? `${themeColor} stroke-[2px]`
+                    : "stroke-zinc-800 stroke-[1px]"
                 }`}
+                style={{
+                  filter: isLit ? "drop-shadow(0 0 2px var(--tw-shadow-color))" : "none"
+                }}
               />
-              {/* Every tick is labeled with retro monospace text */}
               <text
-                x={100 + (radius - 22) * Math.cos(angleRad)}
-                y={100 + (radius - 22) * Math.sin(angleRad) + 3.5}
+                x={100 + (radius - 20) * Math.cos(tickAngleRad)}
+                y={100 + (radius - 20) * Math.sin(tickAngleRad) + 3}
                 textAnchor="middle"
-                className={`text-[7px] font-mono font-bold transition-colors duration-300 ${
-                  isLit ? "fill-cyan-600 drop-shadow-[0_0_1px_rgba(6,182,212,0.3)]" : "fill-slate-400"
+                className={`text-[7px] font-mono font-bold transition-all duration-300 ${
+                  isLit ? "fill-zinc-100 font-extrabold" : "fill-zinc-600"
                 }`}
               >
                 {tick}
@@ -182,37 +273,35 @@ export default function SpeedGauge({ value, max, phase }: SpeedGaugeProps) {
           );
         })}
 
-        {/* Physical Glowing Speedometer Needle */}
-        <g>
-          {/* Vertical needle pointing to 12 o'clock, rotated via inline CSS transform for smoothness */}
-          <line
-            x1="100"
-            y1="100"
-            x2="100"
-            y2="30"
-            className="stroke-rose-500 stroke-[2.5px] drop-shadow-[0_1px_4px_rgba(244,63,94,0.5)]"
-            strokeLinecap="round"
+        {/* Laser Tip Indicator (Glowing Dot at current speed) */}
+        {phase !== "idle" && displayValue > 0 && (
+          <circle
+            cx={dotX}
+            cy={dotY}
+            r="4.5"
+            className="fill-zinc-100"
             style={{
-              transform: `rotate(${needleRotation}deg)`,
-              transformOrigin: "100px 100px",
-              transition: "transform 0.15s cubic-bezier(0.1, 0.8, 0.25, 1)",
+              filter: `drop-shadow(0 0 6px ${themeGlow})`,
             }}
           />
-          {/* Center Hub */}
-          <circle cx="100" cy="100" r="7" className="fill-slate-50 stroke-slate-200 stroke-[1.5px]" />
-          <circle cx="100" cy="100" r="2.5" className="fill-rose-500 drop-shadow-[0_0_2px_rgba(244,63,94,0.6)]" />
-        </g>
+        )}
       </svg>
 
       {/* Center Value Core (Digital Readout) */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center pt-8">
-        <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-slate-400 mb-0.5">
-          {phase === "downloading" ? "📥 Download" : phase === "uploading" ? "📤 Upload" : phase === "completed" ? "✅ Completed" : "Ready"}
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center pt-6 z-20">
+        <span 
+          className="text-[9px] font-black uppercase tracking-[0.25em] transition-colors duration-500"
+          style={{
+            color: phase !== "idle" ? themeGlow.replace(/[\d.]+\)$/, "1)") : "#71717a",
+            textShadow: phase !== "idle" ? `0 0 8px ${themeGlow}` : "none",
+          }}
+        >
+          {displayPhaseName}
         </span>
-        <h2 className="text-5xl font-black tracking-tight text-slate-800 font-mono drop-shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+        <h2 className="text-5xl font-black tracking-tight text-white font-mono drop-shadow-[0_2px_10px_rgba(255,255,255,0.05)] mt-1 mb-0.5">
           {Math.round(displayValue)}
         </h2>
-        <span className="text-[10px] font-black text-cyan-600 tracking-widest uppercase mt-0.5">
+        <span className="text-[10px] font-bold text-zinc-500 tracking-widest uppercase">
           Mbps
         </span>
       </div>
